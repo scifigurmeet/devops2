@@ -1,3 +1,4 @@
+
 ---
 
 # 📘 **Docker Swarm – Complete Beginner’s Guide + Full Working Example**
@@ -289,5 +290,3 @@ sequenceDiagram
 | Load Balancing | Swarm distributes traffic automatically |
 
 ---
-
-Tell me the format and I’ll generate the file for you!
