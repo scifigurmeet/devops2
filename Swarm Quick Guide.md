@@ -124,7 +124,7 @@ docker exec -it manager sh
 Initialize Swarm:
 
 ```bash
-docker swarm init --advertise-addr manager
+docker swarm init --advertise-addr eth0
 ```
 
 ✔ This container is now the **Swarm Manager**
