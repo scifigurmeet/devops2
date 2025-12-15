@@ -78,31 +78,19 @@ We use **Docker-in-Docker (dind)** image.
 ### Create Manager Container
 
 ```bash
-docker run -dit \
-  --name manager \
-  --privileged \
-  --network swarm-net \
-  docker:dind
+docker run -dit --name manager --privileged --network swarm-net docker:dind
 ```
 
 ### Create Worker 1
 
 ```bash
-docker run -dit \
-  --name worker1 \
-  --privileged \
-  --network swarm-net \
-  docker:dind
+docker run -dit --name worker1 --privileged --network swarm-net docker:dind
 ```
 
 ### Create Worker 2
 
 ```bash
-docker run -dit \
-  --name worker2 \
-  --privileged \
-  --network swarm-net \
-  docker:dind
+docker run -dit --name worker2 --privileged --network swarm-net docker:dind
 ```
 
 Verify containers:
