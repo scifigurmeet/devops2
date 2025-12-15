@@ -78,7 +78,7 @@ We use **Docker-in-Docker (dind)** image.
 ### Create Manager Container
 
 ```bash
-docker run -dit --name manager --privileged --network swarm-net docker:dind
+docker run -dit --name manager -p 8080:8080 --privileged --network swarm-net docker:dind
 ```
 
 ### Create Worker 1
