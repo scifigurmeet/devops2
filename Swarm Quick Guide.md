@@ -179,11 +179,7 @@ worker2    Ready    Active
 Still inside manager container:
 
 ```bash
-docker service create \
-  --name web \
-  --replicas 3 \
-  -p 8080:80 \
-  nginx
+docker service create --name web --replicas 3 -p 8080:80 nginx
 ```
 
 ---
