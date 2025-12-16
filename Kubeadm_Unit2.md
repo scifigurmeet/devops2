@@ -1,103 +1,79 @@
-# 📘 Unit II – Deployment and Configuration of Kubernetes
+# 📘 Unit II – Deployment & Configuration of Kubernetes
 
-> **Audience:** Absolute Beginners 👶
-> **Environment Assumed:** Windows 11 + Docker Desktop (basic idea) + AWS EC2 (Ubuntu)
-> **Goal:** Understand *what*, *why*, and *how* of Kubernetes deployment & configuration with **minimal but complete practicals**.
+> **Audience:** Absolute Beginners 👶 (No prior Kubernetes knowledge)
+> **Target:** Students / Teaching / Exams + Practicals
+> **Environment Used for Illustration:** AWS EC2 (Ubuntu 22.04) + kubeadm
+> **Focus:** Clear **WHAT**, **WHY**, **WHERE**, **HOW** for **every command**
 
 ---
 
-## 🧭 What You Will Learn in This Unit
+## 🧭 What This Unit Covers
 
 * Installing Kubernetes using **kubeadm**
 * Master (Control Plane) & Worker Node setup
 * kubectl configuration & context management
-* Deploying apps using **YAML manifests**
+* Deploying applications using YAML
 * Labels, Selectors & Annotations
-* **EKS** cluster setup (Console + CLI overview)
+* EKS Cluster setup (AWS Console + CLI – conceptual)
 * Managing Kubernetes clusters
-* RBAC (Roles & RoleBindings)
+* **Role-Based Access Control (RBAC)** – minimal & clear
 * Secrets & ConfigMaps
 
 ---
 
-## 1️⃣ Installing Kubernetes using kubeadm 🧩
-
-> ⚠️ **Very Important for Beginners**
-> From here onwards, every command is clearly marked as:
->
-> * 🖥️ **Run on Control Plane (Master) Node**
-> * ⚙️ **Run on Worker Node**
-> * 💻 **Run on Your Laptop / Admin Machine**
->
-> This avoids confusion about *where* commands should be executed.
-
----
+## 1️⃣ Installing Kubernetes using kubeadm
 
 ### 🔹 What is kubeadm?
 
-* `kubeadm` is an **official Kubernetes tool** to bootstrap a cluster
-* Used mostly in **self-managed clusters** (VMs / EC2)
-* Not used in managed services like EKS (AWS manages it)
+`kubeadm` is an **official Kubernetes tool** used to:
 
-👉 kubeadm helps you:
-
-* Initialize Control Plane
+* Initialize a Kubernetes cluster
+* Set up the Control Plane
 * Join Worker Nodes
 
----
-
-### 🔹 Typical kubeadm-based Cluster
-
-```mermaid
-graph TD
-    A[Admin Laptop kubectl] --> B[Control Plane - EC2]
-    B --> C[Worker Node 1 - EC2]
-    B --> D[Worker Node 2 - EC2]
-```
+👉 Used in **self-managed clusters** (VMs, EC2)
 
 ---
 
-### 🔹 Prerequisites (EC2 Ubuntu 22.04)
+### 🔹 Machines Required
 
-* 2 or more EC2 instances
-* Instance type: `t2.medium` or higher
-* Open ports: `6443`, `10250`, `30000-32767`
+| Machine | Purpose                |
+| ------- | ---------------------- |
+| EC2-1   | Control Plane (Master) |
+| EC2-2   | Worker Node            |
+
+> 💡 Both machines must be Ubuntu and on same network/VPC
 
 ---
 
-### 🔹 Install Kubernetes Components (ALL NODES)
+## 2️⃣ Installing Kubernetes Components (ALL NODES)
 
-> 📍 **Where to run:**
-> 🖥️ Control Plane (Master) Node **AND** ⚙️ Worker Nodes
-> (Every EC2 machine must have these installed)
+> 📍 **Run on:** 🖥️ Master **AND** ⚙️ Worker Nodes
 
-> 🧠 **What this does:**
->
-> * Installs:
->
->   * `kubeadm` → cluster bootstrap tool
->   * `kubelet` → node agent (runs pods)
->   * `kubectl` → CLI to control cluster
+### 🧠 What are these components?
+
+| Component | Purpose                |
+| --------- | ---------------------- |
+| kubelet   | Runs pods on node      |
+| kubeadm   | Bootstraps cluster     |
+| kubectl   | CLI to control cluster |
+
+### ▶️ Commands
 
 ```bash
 sudo apt update
 sudo apt install -y apt-transport-https ca-certificates curl
 
-# Add Kubernetes signing key
 curl -fsSL https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key | sudo gpg --dearmor -o /etc/apt/keyrings/kubernetes-apt-keyring.gpg
 
-# Add Kubernetes repository
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
-# Install Kubernetes components
 sudo apt update
 sudo apt install -y kubelet kubeadm kubectl
-
-# Prevent auto-upgrade (recommended)
 sudo apt-mark hold kubelet kubeadm kubectl
 ```
 
-> 🔎 **Verification:**
+### 🔎 Verify
 
 ```bash
 kubeadm version
@@ -107,40 +83,35 @@ kubectl version --client
 
 ---
 
-## 2️⃣ Master & Worker Node Setup 🏗️
+## 3️⃣ Initialize Control Plane (Master Node)
 
-### 🔹 Initialize Control Plane (MASTER NODE)
+> 📍 **Run on:** 🖥️ Control Plane ONLY
 
-> 📍 **Where to run:**
-> 🖥️ **ONLY on Control Plane (Master) EC2 instance**
+### 🧠 What happens here?
 
-> 🧠 **What this command does:**
->
-> * Creates Kubernetes Control Plane components
-> * Starts API Server, Scheduler, Controller Manager
-> * Generates join token for worker nodes
+* API Server starts
+* Scheduler & Controller start
+* Cluster certificates generated
+
+### ▶️ Command
 
 ```bash
 sudo kubeadm init --pod-network-cidr=10.244.0.0/16
 ```
 
-> 📌 **Why pod-network-cidr?**
-> This IP range is used by the **Pod Network (Flannel)**. Without this, pods cannot communicate.
-
-> 📌 **IMPORTANT OUTPUT:**
-> At the end, kubeadm prints a **kubeadm join command** 👉 copy and save it.
+> 📌 **IMPORTANT:** Copy the `kubeadm join` command shown in output
 
 ---
 
-### 🔹 Configure kubectl (MASTER)
+## 4️⃣ Configure kubectl (Master Node)
 
-> 📍 **Where to run:**
-> 🖥️ Control Plane (Master) Node
+> 📍 **Run on:** 🖥️ Master Node
 
-> 🧠 **Why this is required:**
->
-> * `kubectl` needs credentials to talk to API Server
-> * kubeadm stores admin config at `/etc/kubernetes/admin.conf`
+### 🧠 Why needed?
+
+`kubectl` needs credentials to talk to API Server
+
+### ▶️ Commands
 
 ```bash
 mkdir -p $HOME/.kube
@@ -148,64 +119,52 @@ sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
 sudo chown $(id -u):$(id -g) $HOME/.kube/config
 ```
 
-> 🔎 **Verification:**
+### 🔎 Verify
 
 ```bash
 kubectl get nodes
 ```
 
-> ❗ At this stage node will show `NotReady` (network not installed yet)
+> ❗ Node will be `NotReady` (network not installed yet)
 
 ---
 
-### 🔹 Install Pod Network (Flannel)
+## 5️⃣ Install Pod Network (Flannel)
 
-> 📍 **Where to run:**
-> 🖥️ Control Plane (Master) Node
+> 📍 **Run on:** 🖥️ Master Node
 
-> 🧠 **What is a Pod Network?**
-> Kubernetes does NOT provide networking by default.
-> A CNI plugin allows **pods to talk to each other across nodes**.
+### 🧠 Why needed?
 
-> 🧠 **Why Flannel?**
->
-> * Beginner-friendly
-> * Simple overlay network
+Kubernetes does NOT provide networking by default
+
+### ▶️ Command
 
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/flannel-io/flannel/master/Documentation/kube-flannel.yml
 ```
 
-> 🔎 **Verification:**
+### 🔎 Verify
 
 ```bash
-kubectl get pods -n kube-system
 kubectl get nodes
 ```
 
-> ✅ Node status should become `Ready`
+> ✅ Status should be `Ready`
 
 ---
 
-### 🔹 Join Worker Nodes
+## 6️⃣ Join Worker Node
 
-> 📍 **Where to run:**
-> ⚙️ **ONLY on Worker Node EC2 instances**
+> 📍 **Run on:** ⚙️ Worker Node
 
-> 🧠 **What this does:**
->
-> * Connects worker to control plane
-> * Registers node with API Server
+### ▶️ Command (from kubeadm init output)
 
 ```bash
 sudo kubeadm join <MASTER-IP>:6443 --token <token> \
-  --discovery-token-ca-cert-hash sha256:<hash>
+ --discovery-token-ca-cert-hash sha256:<hash>
 ```
 
-> 📌 **Where does this command come from?**
-> It is printed at the end of `kubeadm init` output.
-
-> 🔎 **Verification (run on MASTER):**
+### 🔎 Verify (on Master)
 
 ```bash
 kubectl get nodes
@@ -213,46 +172,30 @@ kubectl get nodes
 
 ---
 
-## 3️⃣ kubectl & Context Management 🎮
+## 7️⃣ kubectl Basics & Context
 
-### 🔹 What is kubectl?
-
-* CLI to talk to Kubernetes API Server
-* Uses **kubeconfig file**
-
----
-
-### 🔹 Common kubectl Commands
+> 📍 **Run on:** 🖥️ Master / Admin machine
 
 ```bash
-kubectl get nodes
 kubectl get pods
+kubectl get nodes
 kubectl get namespaces
-kubectl describe pod <pod-name>
+kubectl cluster-info
 ```
 
 ---
 
-### 🔹 Contexts (Multiple Clusters)
+## 8️⃣ Deploying Applications using YAML
 
-```bash
-kubectl config get-contexts
-kubectl config use-context <context-name>
-```
+### 🧠 Why YAML?
 
----
-
-## 4️⃣ Deploying Applications using YAML 📄
-
-### 🔹 Why YAML?
-
-* Declarative (describe desired state)
-* Version controllable
-* Industry standard
+* Declarative
+* Repeatable
+* Version controlled
 
 ---
 
-### 🔹 Minimal Deployment YAML
+### 📄 Minimal Deployment YAML
 
 ```yaml
 apiVersion: apps/v1
@@ -276,21 +219,18 @@ spec:
         - containerPort: 80
 ```
 
-Apply it:
+### ▶️ Apply
 
 ```bash
-kubectl apply -f nginx-deploy.yaml
+kubectl apply -f nginx.yaml
 kubectl get pods
 ```
 
 ---
 
-## 5️⃣ Labels, Selectors & Annotations 🏷️
+## 9️⃣ Labels, Selectors & Annotations
 
-### 🔹 Labels
-
-* Key-value pairs
-* Used for selection
+### 🔹 Labels (Identification)
 
 ```yaml
 labels:
@@ -298,9 +238,7 @@ labels:
   env: prod
 ```
 
----
-
-### 🔹 Selectors
+### 🔹 Selectors (Matching)
 
 ```yaml
 selector:
@@ -308,55 +246,16 @@ selector:
     app: frontend
 ```
 
----
-
-### 🔹 Annotations
-
-* Metadata for tools & documentation
-* Not used for selection
+### 🔹 Annotations (Metadata)
 
 ```yaml
 annotations:
   owner: devops-team
-  purpose: demo
 ```
 
 ---
 
-## 6️⃣ EKS Cluster Setup (AWS) ☁️
-
-### 🔹 What is EKS?
-
-* Managed Kubernetes by AWS
-* No control plane management
-
-```mermaid
-graph TD
-    A[AWS Managed Control Plane] --> B[Worker Nodes - EC2]
-    B --> C[Pods]
-```
-
----
-
-### 🔹 EKS using AWS Console (High Level)
-
-1. Go to **EKS → Create cluster**
-2. Choose VPC & IAM role
-3. Add Node Group
-4. Connect using kubectl
-
----
-
-### 🔹 EKS using AWS CLI (Minimal)
-
-```bash
-aws eks update-kubeconfig --region ap-south-1 --name my-cluster
-kubectl get nodes
-```
-
----
-
-## 7️⃣ Managing Kubernetes Clusters 🔧
+## 🔟 Managing Kubernetes Cluster
 
 ### 🔹 Scaling
 
@@ -364,9 +263,7 @@ kubectl get nodes
 kubectl scale deployment nginx-deploy --replicas=5
 ```
 
----
-
-### 🔹 Delete Resources
+### 🔹 Delete
 
 ```bash
 kubectl delete deployment nginx-deploy
@@ -374,24 +271,30 @@ kubectl delete deployment nginx-deploy
 
 ---
 
-### 🔹 Cluster Info
+## 1️⃣1️⃣ Role-Based Access Control (RBAC)
 
-```bash
-kubectl cluster-info
+### 🧠 What is RBAC?
+
+RBAC controls:
+
+> **Who** can do **what** on **which resource**
+
+---
+
+### 🧩 RBAC Components
+
+```mermaid
+graph LR
+A[User] --> B[Role]
+B --> C[Permissions]
+A --> D[RoleBinding]
 ```
 
 ---
 
-## 8️⃣ Role-Based Access Control (RBAC) 🔐
+### 🎯 Example: User can READ Pods ONLY
 
-### 🔹 Why RBAC?
-
-* Control **who can do what**
-* Security
-
----
-
-### 🔹 Simple Role
+#### Step 1️⃣ Create Role
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -405,15 +308,19 @@ rules:
   verbs: ["get", "list"]
 ```
 
+```bash
+kubectl apply -f role.yaml
+```
+
 ---
 
-### 🔹 RoleBinding
+#### Step 2️⃣ Bind Role to User
 
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: read-pods
+  name: pod-reader-binding
   namespace: default
 subjects:
 - kind: User
@@ -424,67 +331,65 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ```
 
+```bash
+kubectl apply -f rolebinding.yaml
+```
+
 ---
 
-## 9️⃣ ConfigMaps & Secrets 🗂️
+#### Step 3️⃣ Test Permission
 
-### 🔹 ConfigMap
+```bash
+kubectl auth can-i list pods --as dev-user
+kubectl auth can-i delete pods --as dev-user
+```
 
-Used for **non-sensitive config**
+---
+
+## 1️⃣2️⃣ ConfigMaps & Secrets
+
+### 🔹 ConfigMap (Non-sensitive)
 
 ```bash
 kubectl create configmap app-config --from-literal=APP_ENV=prod
 ```
 
-Use in Pod:
-
-```yaml
-env:
-- name: APP_ENV
-  valueFrom:
-    configMapKeyRef:
-      name: app-config
-      key: APP_ENV
-```
-
 ---
 
-### 🔹 Secrets
-
-Used for **passwords & tokens**
+### 🔹 Secret (Sensitive)
 
 ```bash
 kubectl create secret generic db-secret --from-literal=password=admin123
 ```
 
-Use in Pod:
+---
 
-```yaml
-env:
-- name: DB_PASSWORD
-  valueFrom:
-    secretKeyRef:
-      name: db-secret
-      key: password
+## ☁️ EKS Overview (Conceptual)
+
+* AWS manages Control Plane
+* You manage Worker Nodes
+
+```bash
+aws eks update-kubeconfig --name my-cluster
+kubectl get nodes
 ```
 
 ---
 
-## 🔚 Summary
+## ✅ Unit II Summary
 
-✅ kubeadm → Self-managed clusters (EC2)
-✅ kubectl → Command-line control
-✅ YAML → Deployment & configuration
-✅ EKS → Managed Kubernetes
-✅ RBAC → Security
-✅ ConfigMaps & Secrets → Configuration
-
----
-
-🎯 **Tip for Students:**
-
-> First understand kubeadm once, then EKS becomes very easy.
+* kubeadm → self-managed clusters
+* YAML → deployments
+* RBAC → security
+* ConfigMaps/Secrets → configuration
+* EKS → managed Kubernetes
 
 ---
 
-📌 *End of Unit II Study Material*
+🎯 **Teaching Tip:**
+
+> If students understand RBAC + YAML, Kubernetes becomes easy.
+
+---
+
+📌 *End of Unit II*
