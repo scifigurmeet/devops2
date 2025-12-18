@@ -1,39 +1,46 @@
 # Kubernetes ConfigMap and Secret Lab Guide
 
 ## Overview
-This simple lab demonstrates ConfigMap vs Secret by displaying values in nginx web pages. You'll create just 2 YAML files and view the results in your browser.
+Simple hands-on lab: Create ConfigMap and Secret using commands, then display their values in nginx web pages.
 
 ---
 
 # Example 1: ConfigMap (Non-Secret Data)
 
-## Step 1: Create Single YAML File
+## Step 1: Create ConfigMap Using Commands
 
-Create a file called `configmap-demo.yaml`:
+```bash
+# Create ConfigMap with application settings
+kubectl create configmap app-config \
+  --from-literal=APP_NAME="My Awesome App" \
+  --from-literal=ENVIRONMENT="Development" \
+  --from-literal=API_URL="https://api.example.com" \
+  --from-literal=MAX_USERS="100"
+```
+
+## Step 2: Verify ConfigMap (Prove it's Plain Text)
+
+```bash
+# View ConfigMap - notice values are in PLAIN TEXT
+kubectl get configmap app-config -o yaml
+```
+
+**You should see:**
+```yaml
+data:
+  API_URL: https://api.example.com
+  APP_NAME: My Awesome App
+  ENVIRONMENT: Development
+  MAX_USERS: "100"
+```
+
+**Key Point:** All values are **readable in plain text!**
+
+## Step 3: Create Deployment YAML File
+
+Create file `configmap-nginx.yaml`:
 
 ```yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: nginx-configmap-html
-data:
-  index.html: |
-    <html>
-    <head><title>ConfigMap Demo</title></head>
-    <body style="font-family: Arial; margin: 50px; background: lightgreen;">
-      <h1>ConfigMap Demo - Non-Secret Data</h1>
-      <h2>Application Configuration:</h2>
-      <p><b>App Name:</b> My Awesome App</p>
-      <p><b>Environment:</b> Development</p>
-      <p><b>API URL:</b> https://api.example.com</p>
-      <p><b>Max Users:</b> 100</p>
-      <hr>
-      <p style="background: yellow; padding: 10px;">
-        <b>NOTE:</b> These values are stored in PLAIN TEXT in ConfigMap!
-      </p>
-    </body>
-    </html>
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -50,16 +57,63 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nginx:alpine
         ports:
         - containerPort: 80
-        volumeMounts:
-        - name: html-volume
-          mountPath: /usr/share/nginx/html
-      volumes:
-      - name: html-volume
-        configMap:
-          name: nginx-configmap-html
+        env:
+        - name: APP_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: APP_NAME
+        - name: ENVIRONMENT
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: ENVIRONMENT
+        - name: API_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: API_URL
+        - name: MAX_USERS
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: MAX_USERS
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            cat > /usr/share/nginx/html/index.html <<EOF
+            <html>
+            <head><title>ConfigMap Demo</title></head>
+            <body style="font-family: Arial; margin: 50px; background: #e8f5e9;">
+              <div style="background: white; padding: 30px; border-radius: 10px;">
+                <h1 style="color: #2e7d32;">🔓 ConfigMap Demo</h1>
+                <h2>Non-Secret Configuration Values:</h2>
+                <div style="background: #c8e6c9; padding: 15px; margin: 10px 0; border-left: 5px solid #4caf50;">
+                  <b>App Name:</b> $APP_NAME
+                </div>
+                <div style="background: #c8e6c9; padding: 15px; margin: 10px 0; border-left: 5px solid #4caf50;">
+                  <b>Environment:</b> $ENVIRONMENT
+                </div>
+                <div style="background: #c8e6c9; padding: 15px; margin: 10px 0; border-left: 5px solid #4caf50;">
+                  <b>API URL:</b> $API_URL
+                </div>
+                <div style="background: #c8e6c9; padding: 15px; margin: 10px 0; border-left: 5px solid #4caf50;">
+                  <b>Max Users:</b> $MAX_USERS
+                </div>
+                <hr>
+                <div style="background: #fff9c4; padding: 15px; border-left: 5px solid #fbc02d;">
+                  <b>⚠️ NOTE:</b> These values are stored in <b>PLAIN TEXT</b> in ConfigMap!<br>
+                  Anyone with kubectl access can read them directly.
+                </div>
+              </div>
+            </body>
+            </html>
+            EOF
+            nginx -g 'daemon off;'
 ---
 apiVersion: v1
 kind: Service
@@ -74,18 +128,20 @@ spec:
     nodePort: 30080
 ```
 
-## Step 2: Deploy ConfigMap Example
+## Step 4: Deploy the Application
 
 ```bash
-# Apply the configuration
-kubectl apply -f configmap-demo.yaml
+# Apply the deployment
+kubectl apply -f configmap-nginx.yaml
 
-# Wait for pod to be ready
-kubectl get pods -w
-# Press Ctrl+C when you see STATUS = Running
+# Check pod status
+kubectl get pods -l app=nginx-configmap
+
+# Wait for it to be Running
+kubectl wait --for=condition=Ready pod -l app=nginx-configmap --timeout=60s
 ```
 
-## Step 3: View ConfigMap in Browser
+## Step 5: View ConfigMap Values in Browser
 
 ```bash
 # Get your node IP
@@ -94,50 +150,73 @@ kubectl get nodes -o wide
 # Open browser: http://<NODE-IP>:30080
 ```
 
-**You should see a green page with configuration values!**
+**You should see a GREEN page displaying all ConfigMap values!**
 
-## Step 4: Prove ConfigMap is Plain Text
+## Step 6: Show Students ConfigMap is Plain Text
 
 ```bash
-# View the ConfigMap - notice HTML is PLAIN TEXT
-kubectl get configmap nginx-configmap-html -o yaml
+# Anyone can read the ConfigMap directly
+kubectl get configmap app-config -o yaml
+
+# Even describe shows the values
+kubectl describe configmap app-config
 ```
 
-**Key Point:** Anyone can read ConfigMap data directly!
+**Teaching Point:** ConfigMap = Plain text, visible to everyone!
 
 ---
 
 # Example 2: Secret (Sensitive Data)
 
-## Step 1: Create Single YAML File
+## Step 1: Create Secret Using Commands
 
-Create a file called `secret-demo.yaml`:
+```bash
+# Create Secret with sensitive data
+kubectl create secret generic app-secret \
+  --from-literal=DB_USERNAME="admin" \
+  --from-literal=DB_PASSWORD="SuperSecret123!" \
+  --from-literal=API_KEY="sk-1234567890abcdef" \
+  --from-literal=JWT_TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+```
+
+## Step 2: Verify Secret (Prove it's Base64 Encoded)
+
+```bash
+# View Secret - notice values are BASE64 ENCODED
+kubectl get secret app-secret -o yaml
+```
+
+**You should see:**
+```yaml
+data:
+  API_KEY: c2stMTIzNDU2Nzg5MGFiY2RlZg==
+  DB_PASSWORD: U3VwZXJTZWNyZXQxMjMh
+  DB_USERNAME: YWRtaW4=
+  JWT_TOKEN: ZXlKaGJHY2lPaUpJVXpJMU5pSXNJblI1Y0NJNklrcFhWQ0o5
+```
+
+**Key Point:** All values are **base64 encoded, not plain text!**
+
+## Step 3: Decode a Secret Value
+
+```bash
+# Show the encoded password
+echo "Encoded password:"
+kubectl get secret app-secret -o jsonpath='{.data.DB_PASSWORD}'
+
+# Decode it
+echo -e "\n\nDecoded password:"
+kubectl get secret app-secret -o jsonpath='{.data.DB_PASSWORD}' | base64 --decode
+echo ""
+```
+
+**Teaching Point:** Base64 can be decoded, but prevents accidental viewing!
+
+## Step 4: Create Deployment YAML File
+
+Create file `secret-nginx.yaml`:
 
 ```yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: nginx-secret-html
-type: Opaque
-stringData:
-  index.html: |
-    <html>
-    <head><title>Secret Demo</title></head>
-    <body style="font-family: Arial; margin: 50px; background: lightcoral;">
-      <h1>Secret Demo - Sensitive Data</h1>
-      <h2>Database Credentials:</h2>
-      <p><b>DB Username:</b> admin</p>
-      <p><b>DB Password:</b> SuperSecret123!</p>
-      <p><b>API Key:</b> sk-1234567890abcdef</p>
-      <p><b>JWT Token:</b> eyJhbGciOiJIUzI1NiIsInR5</p>
-      <hr>
-      <p style="background: yellow; padding: 10px;">
-        <b>WARNING:</b> These values are BASE64 ENCODED in Secret!<br>
-        (Never display secrets in real apps - this is just for demo!)
-      </p>
-    </body>
-    </html>
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -154,16 +233,67 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx:latest
+        image: nginx:alpine
         ports:
         - containerPort: 80
-        volumeMounts:
-        - name: html-volume
-          mountPath: /usr/share/nginx/html
-      volumes:
-      - name: html-volume
-        secret:
-          secretName: nginx-secret-html
+        env:
+        - name: DB_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: DB_USERNAME
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: DB_PASSWORD
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: API_KEY
+        - name: JWT_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: app-secret
+              key: JWT_TOKEN
+        command: ["/bin/sh"]
+        args:
+          - -c
+          - |
+            cat > /usr/share/nginx/html/index.html <<EOF
+            <html>
+            <head><title>Secret Demo</title></head>
+            <body style="font-family: Arial; margin: 50px; background: #ffebee;">
+              <div style="background: white; padding: 30px; border-radius: 10px;">
+                <h1 style="color: #c62828;">🔐 Secret Demo</h1>
+                <h2>Sensitive Data from Secret:</h2>
+                <div style="background: #ffcdd2; padding: 15px; margin: 10px 0; border-left: 5px solid #f44336;">
+                  <b>DB Username:</b> $DB_USERNAME
+                </div>
+                <div style="background: #ffcdd2; padding: 15px; margin: 10px 0; border-left: 5px solid #f44336;">
+                  <b>DB Password:</b> $DB_PASSWORD
+                </div>
+                <div style="background: #ffcdd2; padding: 15px; margin: 10px 0; border-left: 5px solid #f44336;">
+                  <b>API Key:</b> $API_KEY
+                </div>
+                <div style="background: #ffcdd2; padding: 15px; margin: 10px 0; border-left: 5px solid #f44336;">
+                  <b>JWT Token:</b> $JWT_TOKEN
+                </div>
+                <hr>
+                <div style="background: #fff9c4; padding: 15px; border-left: 5px solid #fbc02d;">
+                  <b>⚠️ WARNING:</b> In production, <b>NEVER</b> display secrets in web pages!<br>
+                  This is only for educational demonstration.
+                </div>
+                <div style="background: #e1f5fe; padding: 15px; margin-top: 10px; border-left: 5px solid #03a9f4;">
+                  <b>💡 Key Point:</b> These values are <b>BASE64 ENCODED</b> in Kubernetes Secret.<br>
+                  Use RBAC and encryption-at-rest for production security!
+                </div>
+              </div>
+            </body>
+            </html>
+            EOF
+            nginx -g 'daemon off;'
 ---
 apiVersion: v1
 kind: Service
@@ -178,152 +308,145 @@ spec:
     nodePort: 30081
 ```
 
-## Step 2: Deploy Secret Example
+## Step 5: Deploy the Application
 
 ```bash
-# Apply the configuration
-kubectl apply -f secret-demo.yaml
+# Apply the deployment
+kubectl apply -f secret-nginx.yaml
 
-# Wait for pod to be ready
-kubectl get pods -w
-# Press Ctrl+C when you see STATUS = Running
+# Check pod status
+kubectl get pods -l app=nginx-secret
+
+# Wait for it to be Running
+kubectl wait --for=condition=Ready pod -l app=nginx-secret --timeout=60s
 ```
 
-## Step 3: View Secret in Browser
+## Step 6: View Secret Values in Browser
 
 ```bash
 # Open browser: http://<NODE-IP>:30081
 ```
 
-**You should see a red page with sensitive data!**
+**You should see a RED page displaying all Secret values!**
 
-## Step 4: Prove Secret is Base64 Encoded
-
-```bash
-# View the Secret - notice HTML is BASE64 ENCODED
-kubectl get secret nginx-secret-html -o yaml
-```
-
-**Key Point:** Secret data is encoded, not plain text!
-
-## Step 5: Decode a Secret Value
+## Step 7: Show Students Secret is Base64 Encoded
 
 ```bash
-# Get the encoded HTML
-kubectl get secret nginx-secret-html -o jsonpath='{.data.index\.html}' | head -c 100
-echo ""
+# Values are encoded in Secret
+kubectl get secret app-secret -o yaml
 
-# Decode it
-kubectl get secret nginx-secret-html -o jsonpath='{.data.index\.html}' | base64 --decode | head -n 5
+# Compare with ConfigMap
+kubectl get configmap app-config -o yaml
 ```
 
-**See?** Base64 can be decoded, but it prevents accidental viewing!
+**Teaching Point:** Secret = Base64 encoded, ConfigMap = Plain text!
 
 ---
 
-## Side-by-Side Comparison
+## Side-by-Side Demonstration
 
-Open both URLs in different browser tabs:
+### Open Both Pages in Browser
 
-1. **ConfigMap (Green page):** http://<NODE-IP>:30080
-2. **Secret (Red page):** http://<NODE-IP>:30081
+1. **ConfigMap (GREEN):** http://<NODE-IP>:30080
+2. **Secret (RED):** http://<NODE-IP>:30081
 
-Now run these commands:
+### Run Commands Side-by-Side
 
 ```bash
-echo "=== ConfigMap - PLAIN TEXT ==="
-kubectl get configmap nginx-configmap-html -o yaml | head -n 20
+echo "========================================="
+echo "ConfigMap - PLAIN TEXT"
+echo "========================================="
+kubectl get configmap app-config -o yaml
 
 echo ""
-echo "=== Secret - BASE64 ENCODED ==="
-kubectl get secret nginx-secret-html -o yaml | head -n 20
+echo "========================================="
+echo "Secret - BASE64 ENCODED"
+echo "========================================="
+kubectl get secret app-secret -o yaml
 ```
 
 ---
 
-## Key Differences Table
+## Key Differences
 
-| Feature | ConfigMap | Secret |
-|---------|-----------|--------|
-| **Browser** | http://NODE:30080 (GREEN) | http://NODE:30081 (RED) |
+| Aspect | ConfigMap | Secret |
+|--------|-----------|--------|
+| **Created with** | `kubectl create configmap` | `kubectl create secret` |
+| **Browser Page** | Port 30080 (GREEN) | Port 30081 (RED) |
 | **Storage** | Plain text | Base64 encoded |
-| **View with kubectl** | Readable directly | Shows encoded text |
-| **Use for** | App settings, URLs | Passwords, tokens |
-| **When to use** | Non-sensitive config | Sensitive data |
+| **Viewing** | Readable directly | Encoded, needs decode |
+| **Use for** | App config, URLs, flags | Passwords, tokens, keys |
+| **Security** | None (public) | Obfuscated (not encrypted) |
+
+---
+
+## Summary of Steps
+
+### ConfigMap Demo:
+1. ✅ Create ConfigMap with `kubectl create configmap`
+2. ✅ View it with `kubectl get configmap -o yaml` (plain text!)
+3. ✅ Deploy nginx that uses ConfigMap values
+4. ✅ View green page in browser at port 30080
+
+### Secret Demo:
+1. ✅ Create Secret with `kubectl create secret`
+2. ✅ View it with `kubectl get secret -o yaml` (base64 encoded!)
+3. ✅ Decode a value with `base64 --decode`
+4. ✅ Deploy nginx that uses Secret values
+5. ✅ View red page in browser at port 30081
 
 ---
 
 ## Important Lessons
 
-1. ✅ **ConfigMap** = Plain text, anyone can read it
-2. ✅ **Secret** = Base64 encoded (harder to read accidentally)
-3. ⚠️ **Base64 is NOT encryption** - it can be decoded easily
-4. 🔒 **Always use Secret** for passwords, API keys, tokens
-5. ❌ **Never display secrets** in real applications (this is only for learning!)
-
----
-
-## Test Your Understanding
-
-Ask students:
-
-1. **Q:** Which command shows ConfigMap in plain text?
-   **A:** `kubectl get configmap nginx-configmap-html -o yaml`
-
-2. **Q:** Can you read Secret values directly?
-   **A:** No, they are base64 encoded
-
-3. **Q:** How do you decode a Secret?
-   **A:** `kubectl get secret <name> -o jsonpath='{.data.key}' | base64 --decode`
-
-4. **Q:** Should we use ConfigMap for database passwords?
-   **A:** NO! Always use Secrets for sensitive data
+1. **ConfigMap = Plain Text** → Anyone can read it
+2. **Secret = Base64 Encoded** → Prevents accidental viewing
+3. **Base64 ≠ Encryption** → Can still be decoded
+4. **Always use Secret** for passwords, API keys, tokens
+5. **Never display secrets** in real apps (this is demo only!)
 
 ---
 
 ## Cleanup
 
 ```bash
-# Delete ConfigMap example
-kubectl delete -f configmap-demo.yaml
+# Delete ConfigMap demo
+kubectl delete -f configmap-nginx.yaml
+kubectl delete configmap app-config
 
-# Delete Secret example
-kubectl delete -f secret-demo.yaml
+# Delete Secret demo
+kubectl delete -f secret-nginx.yaml
+kubectl delete secret app-secret
 
 # Remove files
-rm configmap-demo.yaml secret-demo.yaml
+rm configmap-nginx.yaml secret-nginx.yaml
 ```
 
 ---
 
-## Quick Reference Commands
+## Test Your Knowledge
 
+**Q1:** How do you create a ConfigMap from command line?
 ```bash
-# List ConfigMaps
-kubectl get configmap
-
-# List Secrets
-kubectl get secret
-
-# View ConfigMap details
-kubectl describe configmap nginx-configmap-html
-
-# View Secret details (won't show values)
-kubectl describe secret nginx-secret-html
-
-# Get pods
-kubectl get pods
-
-# Get services
-kubectl get svc
+kubectl create configmap <name> --from-literal=KEY=VALUE
 ```
 
----
+**Q2:** How do you create a Secret from command line?
+```bash
+kubectl create secret generic <name> --from-literal=KEY=VALUE
+```
 
-## Summary
+**Q3:** How to view ConfigMap values?
+```bash
+kubectl get configmap <name> -o yaml
+```
 
-**ConfigMap Demo File:** `configmap-demo.yaml` → Browse at port **30080** (Green)
+**Q4:** How to decode Secret values?
+```bash
+kubectl get secret <name> -o jsonpath='{.data.KEY}' | base64 --decode
+```
 
-**Secret Demo File:** `secret-demo.yaml` → Browse at port **30081** (Red)
-
-**Remember:** ConfigMap = plain text, Secret = base64 encoded!
+**Q5:** Which one should you use for database passwords?
+```
+Always use Secret! Never ConfigMap for sensitive data.
+```
