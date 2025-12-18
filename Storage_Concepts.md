@@ -219,6 +219,8 @@ apiVersion: v1
 kind: Pod
 metadata:
   name: nginx-storage-pod
+  labels:
+    app: nginx-storage
 spec:
   containers:
   - name: nginx
