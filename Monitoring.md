@@ -440,5 +440,3 @@ Students now understand:
 * Real Kubernetes monitoring
 
 ---
-
-Just tell me 👍
