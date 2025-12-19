@@ -334,6 +334,3 @@ sudo usermod -aG docker ubuntu
 * Blue-Green deployment
 
 ---
-
-
-Just say the word 👍
