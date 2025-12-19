@@ -558,5 +558,3 @@ Now students can:
 
 ---
 
-
-Just say **👍**
