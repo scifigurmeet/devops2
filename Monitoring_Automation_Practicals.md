@@ -175,7 +175,7 @@ Example:
 
 ```bash
 # Check Prometheus configuration
-kubectl get configmap prometheus-server -n default -o yaml | grep retention
+kubectl describe pod prometheus-server-xxxxxxxxx-xxxx -n default | findstr retention
 ```
 
 ---
