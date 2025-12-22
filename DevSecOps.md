@@ -218,6 +218,11 @@ jobs:
 docker run --rm -v $(pwd):/app aquasec/trivy fs /app
 ```
 
+For Windows:
+```bash
+docker run --rm -v "%cd%":/app aquasec/trivy fs /app
+```
+
 ---
 
 ### What You’ll See
