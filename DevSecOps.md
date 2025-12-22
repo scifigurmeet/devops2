@@ -269,7 +269,7 @@ docker build -t devsecops-demo .
 ## Step 3: Scan Image
 
 ```bash
-docker run --rm aquasec/trivy image devsecops-demo
+docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image devsecops-demo
 ```
 
 ---
