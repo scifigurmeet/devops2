@@ -186,11 +186,11 @@ services:
     restart: always
     ports:
       - "8080:80"
-    environment:
-      WORDPRESS_DB_HOST: mysql
-      WORDPRESS_DB_USER: wpuser
-      WORDPRESS_DB_PASSWORD: wppass
-      WORDPRESS_DB_NAME: wordpress
+    # environment:
+    #   WORDPRESS_DB_HOST: mysql
+    #   WORDPRESS_DB_USER: wpuser
+    #   WORDPRESS_DB_PASSWORD: wppass
+    #   WORDPRESS_DB_NAME: wordpress
     depends_on:
       - mysql
     networks:
